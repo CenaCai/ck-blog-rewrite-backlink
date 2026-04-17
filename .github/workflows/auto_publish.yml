@@ -7,6 +7,7 @@
 # 4. 在仓库 Settings → Secrets and variables → Actions 中添加：
 #    - HASHNODE_TOKEN: 你的 Hashnode Personal Access Token
 #    - GROQ_API_KEY: 你的 Groq API Key（免费：https://console.groq.com/keys）
+#    - DEVTO_API_KEY: 你的 Dev.to API Key
 # 5. 推送到 GitHub，工作流会每天 UTC 8:00（北京时间 16:00）自动运行
 
 name: Auto Publish Articles
@@ -37,6 +38,7 @@ jobs:
         env:
           HASHNODE_TOKEN: ${{ secrets.HASHNODE_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
         run: python auto_publish.py
 
       - name: Commit published.json update
