@@ -1,0 +1,56 @@
+# GitHub Actions 工作流：每天自动抓取文章 → AI 改写 → 发布到 Hashnode + Dev.to + Blogger
+#
+# 使用方法：
+# 1. 创建一个 GitHub 仓库
+# 2. 将 auto_publish.py 放入仓库根目录
+# 3. 将此文件放入 .github/workflows/ 目录
+# 4. 在仓库 Settings → Secrets and variables → Actions 中添加：
+#    - HASHNODE_TOKEN: 你的 Hashnode Personal Access Token
+#    - GROQ_API_KEY: 你的 Groq API Key（免费：https://console.groq.com/keys）
+#    - DEVTO_API_KEY: 你的 Dev.to API Key
+#    - GOOGLE_CLIENT_ID: Google OAuth Client ID（用于 Blogger）
+#    - GOOGLE_CLIENT_SECRET: Google OAuth Client Secret
+#    - GOOGLE_REFRESH_TOKEN: Google OAuth Refresh Token
+# 5. 推送到 GitHub，工作流会每天 UTC 8:00（北京时间 16:00）自动运行
+
+name: Auto Publish Articles
+
+on:
+  schedule:
+    # 每天 UTC 8:00 运行（北京时间 16:00）
+    - cron: '0 8 * * *'
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run auto publish script
+        env:
+          HASHNODE_TOKEN: ${{ secrets.HASHNODE_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+        run: python auto_publish.py
+
+      - name: Commit published.json update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add published.json
+          git diff --staged --quiet || git commit -m "Update published articles record"
+          git push
