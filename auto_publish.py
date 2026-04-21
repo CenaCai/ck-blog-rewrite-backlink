@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-自动内容分发脚本：从 creditkaagapay.com 抓取文章 → AI 改写为故事风格 → 发布到 Hashnode + Dev.to + Blogger
+自动内容分发脚本：从 creditkaagapay.com 抓取文章 → AI 改写为故事风格 → 发布到 Hashnode + Dev.to + Blogger + WordPress.com
 使用方法：
   1. 安装依赖：pip install requests google-auth google-auth-oauthlib
   2. 设置环境变量（或直接修改下方配置）
@@ -15,6 +15,11 @@ Blogger 设置：
   3. 创建 OAuth 2.0 凭证（桌面应用类型）
   4. 运行 python auto_publish.py --get-blogger-token 获取 refresh token
   5. 将 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN 设为环境变量
+
+WordPress.com 设置：
+  1. 前往 https://developer.wordpress.com/apps/ 创建应用
+  2. 获取 OAuth2 Bearer Token
+  3. 将 WPCOM_ACCESS_TOKEN 设为环境变量
 """
 
 import os
@@ -44,6 +49,11 @@ GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REFRESH_TOKEN = os.environ.get("GOOGLE_REFRESH_TOKEN", "")
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 BLOGGER_API_URL = f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts"
+
+# WordPress.com 配置（OAuth2 Bearer Token）
+WPCOM_ACCESS_TOKEN = os.environ.get("WPCOM_ACCESS_TOKEN", "")
+WPCOM_SITE = os.environ.get("WPCOM_SITE", "mocasacom.wordpress.com")
+WPCOM_API_URL = f"https://public-api.wordpress.com/rest/v1.1/sites/{WPCOM_SITE}/posts/new"
 
 # Groq 配置（免费 AI API，用于改写文章）
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "在这里填你的Groq Key")
@@ -343,7 +353,6 @@ def get_google_access_token():
         return resp.json().get("access_token")
     else:
         print(f"    Google Token 获取失败: {resp.status_code} {resp.text[:200]}")
-        return None
 
 
 def markdown_to_html(md_text):
@@ -412,6 +421,40 @@ def publish_to_blogger(title, content):
         return False
 
 
+# ============ WordPress.com 发布 ============
+def publish_to_wpcom(title, content):
+    """发布文章到 WordPress.com (mocasacom.wordpress.com)"""
+    if not WPCOM_ACCESS_TOKEN:
+        print("    WordPress.com 发布失败：未设置 WPCOM_ACCESS_TOKEN")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {WPCOM_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    # WordPress.com REST API v1.1 接受 HTML 或纯文本
+    html_content = markdown_to_html(content)
+
+    payload = {
+        "title": title,
+        "content": html_content,
+        "status": "publish",
+        "categories": "Finance, Philippines",
+        "tags": "finance, Philippines, personal finance, loans, creditkaagapay",
+    }
+
+    resp = requests.post(WPCOM_API_URL, json=payload, headers=headers, timeout=30)
+
+    if resp.status_code in (200, 201):
+        data = resp.json()
+        print(f"    WordPress.com 发布成功: {data.get('URL', 'N/A')}")
+        return True
+    else:
+        print(f"    WordPress.com 发布失败 ({resp.status_code}): {resp.text[:200]}")
+        return False
+
+
 # ============ 获取 Blogger Token 辅助工具 ============
 def get_blogger_refresh_token():
     """一次性授权工具：帮助用户获取 Google Refresh Token"""
@@ -470,7 +513,7 @@ def main():
         return
 
     print("=" * 60)
-    print("自动内容分发系统 (Hashnode + Dev.to + Blogger)")
+    print("自动内容分发系统 (Hashnode + Dev.to + Blogger + WordPress.com)")
     print(f"时间: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}")
     print("=" * 60)
 
@@ -483,8 +526,9 @@ def main():
     hashnode_ok = HASHNODE_TOKEN != "在这里填你的Token"
     devto_ok = DEVTO_API_KEY != "在这里填你的Dev.to Key"
     blogger_ok = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET and GOOGLE_REFRESH_TOKEN)
+    wpcom_ok = bool(WPCOM_ACCESS_TOKEN)
 
-    if not hashnode_ok and not devto_ok and not blogger_ok:
+    if not hashnode_ok and not devto_ok and not blogger_ok and not wpcom_ok:
         print("\n❌ 请至少设置一个发布平台")
         return
 
@@ -497,6 +541,8 @@ def main():
         platforms.append("Dev.to")
     if blogger_ok:
         platforms.append("Blogger")
+    if wpcom_ok:
+        platforms.append("WordPress.com")
 
     print(f"    发布平台: {', '.join(platforms)}")
 
@@ -546,6 +592,11 @@ def main():
         if blogger_ok:
             print(f"[4.5/5] 发布到 Blogger...")
             if publish_to_blogger(new_title, new_content):
+                success_any = True
+
+        if wpcom_ok:
+            print(f"[4.8/5] 发布到 WordPress.com...")
+            if publish_to_wpcom(new_title, new_content):
                 success_any = True
 
         if success_any:
