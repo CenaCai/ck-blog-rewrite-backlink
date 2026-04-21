@@ -1,4 +1,4 @@
-# GitHub Actions 工作流：每天自动抓取文章 → AI 改写 → 发布到 Hashnode + Dev.to + Blogger
+# GitHub Actions 工作流：每天自动抓取文章 → AI 改写 → 发布到 Hashnode + Dev.to + Blogger + WordPress.com
 #
 # 使用方法：
 # 1. 创建一个 GitHub 仓库
@@ -11,6 +11,7 @@
 #    - GOOGLE_CLIENT_ID: Google OAuth Client ID（用于 Blogger）
 #    - GOOGLE_CLIENT_SECRET: Google OAuth Client Secret
 #    - GOOGLE_REFRESH_TOKEN: Google OAuth Refresh Token
+#    - WPCOM_ACCESS_TOKEN: WordPress.com OAuth2 Bearer Token
 # 5. 推送到 GitHub，工作流会每天 UTC 8:00（北京时间 16:00）自动运行
 
 name: Auto Publish Articles
@@ -45,6 +46,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          WPCOM_ACCESS_TOKEN: ${{ secrets.WPCOM_ACCESS_TOKEN }}
         run: python auto_publish.py
 
       - name: Commit published.json update
